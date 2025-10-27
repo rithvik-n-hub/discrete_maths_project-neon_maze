@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Neon Maze Generator & Solver</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --neon-blue: #00e0ff;
+    --neon-purple: #ff00ff;
+    --neon-green: #00ff80;
+    --neon-red: #ff0066;
+    --dark-bg1: #1a0a20; /* Darker, slightly purple-ish */
+    --dark-bg2: #0f0510; /* Even darker */
+    --card-bg: rgba(255, 255, 255, 0.08); /* Slightly lighter card for contrast */
+    --text-color: #e0faff;
+    --shadow-color-blue: rgba(0, 224, 255, 0.4);
+    --shadow-color-purple: rgba(255, 0, 255, 0.4);
+    --shadow-color-green: rgba(0, 255, 128, 0.4);
+    --shadow-color-red: rgba(255, 0, 102, 0.4);
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Orbitron', sans-serif; /* Techy font */
+    background: radial-gradient(circle at top left, var(--dark-bg1) 0%, var(--dark-bg2) 100%);
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    min-height: 100vh;
+    box-sizing: border-box;
+  }
+
+  h1 {
+    margin: 15px 0 25px 0;
+    color: var(--neon-blue);
+    text-shadow: 0 0 15px var(--shadow-color-blue), 0 0 30px var(--neon-blue);
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+
+  /* layout: controls left, canvas+stats right */
+  .top-row {
+    display: flex;
+    gap: 30px; /* Increased gap */
+    width: 100%;
+    max-width: 1300px; /* Wider layout */
+    align-items: flex-start;
+  }
+
+  .controls, .panel {
+    background: var(--card-bg);
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 0 20px var(--shadow-color-purple); /* Neon shadow for cards */
+    backdrop-filter: blur(10px); /* Stronger blur */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .controls {
+    width: 380px; /* Slightly wider controls */
+  }
+
+  .controls label {
+    display: block;
+    font-weight: 400; /* Orbitron default is bold */
+    margin-top: 15px;
+    font-size: 1rem;
+    color: var(--neon-green); /* Neon green labels */
+    text-shadow: 0 0 8px var(--shadow-color-green);
+  }
+
+  input[type=number], select {
+    width: 100%;
+    padding: 12px 15px; /* Larger padding */
+    margin-top: 8px;
+    border-radius: 10px;
+    border: none;
+    outline: none;
+    background: rgba(0, 224, 255, 0.15); /* Lighter neon blue input background */
+    color: var(--neon-blue);
+    box-sizing: border-box;
+    font-family: 'Share Tech Mono', monospace; /* Monospace for inputs */
+    font-size: 1rem;
+    box-shadow: inset 0 0 8px rgba(0, 224, 255, 0.2); /* Inner glow */
+    transition: all 0.3s ease;
+  }
+  input[type=number]:focus, select:focus {
+    box-shadow: inset 0 0 15px var(--neon-blue), 0 0 10px var(--neon-blue);
+  }
+
+  select option {
+    background: var(--dark-bg2);
+    color: var(--text-color);
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  button {
+    flex: 1;
+    padding: 14px 18px; /* Larger buttons */
+    border-radius: 12px;
+    border: none;
+    background: var(--neon-purple); /* Primary button color */
+    color: var(--dark-bg2); /* Dark text on neon */
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    box-shadow: 0 0 15px var(--shadow-color-purple), 0 0 25px var(--neon-purple); /* Stronger neon glow */
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+  }
+  button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 20px var(--shadow-color-purple), 0 0 35px var(--neon-purple);
+  }
+
+  button.alt {
+    background: transparent;
+    color: var(--neon-blue); /* Alt button color */
+    border: 2px solid var(--neon-blue); /* Neon blue border */
+    box-shadow: 0 0 10px var(--shadow-color-blue);
+  }
+  button.alt:hover {
+    background: rgba(0, 224, 255, 0.1);
+    box-shadow: 0 0 15px var(--shadow-color-blue), 0 0 25px var(--neon-blue);
+  }
+
+  /* right area: canvas + stats */
+  .right {
+    flex: 1;
+    display: flex;
+    gap: 30px; /* Increased gap */
+    align-items: flex-start;
+    justify-content: center;
+    flex-wrap: wrap; /* Allows wrapping on smaller screens */
+  }
+
+  .canvas-wrap {
+    background: var(--card-bg);
+    padding: 20px; /* More padding */
+    border-radius: 15px;
+    box-shadow: 0 0 20px var(--shadow-color-blue);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  canvas {
+    display: block;
+    background: #070708; /* Very dark canvas background */
+    border-radius: 10px;
+    border: 2px solid var(--neon-blue); /* Neon border for canvas */
+    box-shadow: inset 0 0 15px rgba(0, 224, 255, 0.2), 0 0 15px var(--shadow-color-blue); /* Inner and outer glow */
+  }
+
+  .maze-info {
+    text-align: center;
+    margin-top: 15px;
+    color: var(--neon-green);
+    font-size: 1rem;
+    text-shadow: 0 0 5px var(--shadow-color-green);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .panel {
+    width: 320px;
+    min-width: 280px; /* Ensure panel is not too small */
+    color: var(--text-color);
+  }
+  .panel h3 {
+    margin: 0 0 15px 0;
+    color: var(--neon-red); /* Neon red for stats title */
+    text-shadow: 0 0 10px var(--shadow-color-red);
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+  .panel .line {
+    font-size: 1rem;
+    margin: 10px 0;
+    font-family: 'Share Tech Mono', monospace;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+    padding-bottom: 5px;
+  }
+  .panel .line:last-child {
+    border-bottom: none;
+  }
+  .panel .line span {
+    color: var(--neon-blue);
+    text-shadow: 0 0 8px var(--shadow-color-blue);
+    font-weight: bold;
+  }
+
+  .status {
+    margin-top: 20px;
+    color: var(--neon-green);
+    font-weight: 700;
+    text-shadow: 0 0 10px var(--shadow-color-green);
+    font-size: 1.1rem;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* Media Queries for Responsiveness */
+  @media (max-width: 1000px) {
+    .top-row {
+      flex-direction: column;
+      align-items: center;
+    }
+    .controls, .panel {
+      width: 90%; /* Wider on small screens */
+      max-width: 500px; /* Prevent being too wide */
+    }
+    .right {
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      font-size: 2rem;
+    }
+  }
+
+  @media (max-width: 600px) {
+    h1 {
+      font-size: 1.8rem;
+    }
+    .controls, .panel {
+      padding: 18px;
+    }
+    button {
+      padding: 12px 15px;
+      font-size: 1rem;
+    }
+    input[type=number], select {
+      padding: 10px 12px;
+      font-size: 0.9rem;
+    }
+  }
+</style>
+</head>
+<body>
+  <h1>Neon Maze Generator & Solver</h1>
+
+  <div class="top-row">
+    <div class="controls">
+      <label for="width">Width (2–200)</label>
+      <input id="width" type="number" min="2" max="200" value="24">
+
+      <label for="height">Height (2–200)</label>
+      <input id="height" type="number" min="2" max="200" value="24">
+
+      <label for="genAlgo">Generation Algorithm</label>
+      <select id="genAlgo">
+        <option value="dfs">Recursive Backtracking (DFS)</option>
+        <option value="kruskal">Kruskal's Algorithm</option>
+        <option value="prim">Prim's Algorithm</option>
+      </select>
+
+      <label for="solveAlgo">Solver Algorithm</label>
+      <select id="solveAlgo">
+        <option value="bfs">BFS (Shortest Path)</option>
+        <option value="dfs">DFS (Depth-first)</option>
+      </select>
+
+      <div class="btn-row">
+        <button id="btnGen">Generate</button>
+        <button id="btnSolve">Solve</button>
+      </div>
+      <div class="btn-row" style="margin-top:8px">
+        <button id="btnReset" class="alt">Reset Maze</button>
+        <button id="btnDownload" class="alt">Download PNG</button>
+      </div>
+
+      <div class="status" id="status">Ready</div>
+    </div>
+
+    <div class="right">
+      <div class="canvas-wrap">
+        <canvas id="c" width="720" height="720"></canvas>
+        <div class="maze-info">
+          <span id="mazeInfo">Maze: - × -</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Stats</h3>
+        <div class="line">Generation: <span id="statGen">-</span></div>
+        <div class="line">Solver: <span id="statSolve">-</span></div>
+        <div class="line">Total Steps: <span id="statSteps">0</span></div>
+        <div class="line">Path Length: <span id="statLen">0</span></div>
+        <div class="line">Total Paths Found: <span id="statPaths">0</span></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* Maze v5 — all generation algorithms included, BFS/DFS solving, animated reveal, proof panel beside canvas */
+const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+const btnGen = document.getElementById('btnGen'), btnSolve = document.getElementById('btnSolve');
+const btnReset = document.getElementById('btnReset'), btnDownload = document.getElementById('btnDownload');
+const status = document.getElementById('status');
+const mazeInfo = document.getElementById('mazeInfo');
+const statGen = document.getElementById('statGen'), statSolve = document.getElementById('statSolve');
+const statSteps = document.getElementById('statSteps'), statLen = document.getElementById('statLen'), statPaths = document.getElementById('statPaths');
+
+let W=24, H=24, cellSize=24;
+let maze = []; // maze[y][x] = {top,right,bottom,left,visited}
+let start = {x:0,y:0}, end = {x:0,y:0};
+let solving = false, generating = false;
+let animationDelay = 60; // ms per revealed segment (fixed as requested)
+
+/* ---------- helpers ---------- */
+function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
+function id(x,y){ return y*W + x; }
+function inBounds(x,y){ return x>=0 && y>=0 && x<W && y<H; }
+
+/* ---------- drawing ---------- */
+function drawMaze(highlightPath=null){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(0,224,255,0.95)'; /* Neon blue for maze walls */
+  for(let y=0;y<H;y++){
+    for(let x=0;x<W;x++){
+      const c = maze[y][x];
+      const X = x*cellSize, Y = y*cellSize;
+      if(c.top) drawLine(X,Y,X+cellSize,Y);
+      if(c.right) drawLine(X+cellSize,Y,X+cellSize,Y+cellSize);
+      if(c.bottom) drawLine(X,Y+cellSize,X+cellSize,Y+cellSize);
+      if(c.left) drawLine(X,Y,X,Y+cellSize);
+    }
+  }
+  // start & end
+  ctx.fillStyle = '#00ff80'; /* Neon green start */
+  ctx.shadowColor = 'rgba(0,255,128,0.8)';
+  ctx.shadowBlur = 10;
+  ctx.fillRect(start.x*cellSize+4, start.y*cellSize+4, cellSize-8, cellSize-8);
+
+  ctx.fillStyle = '#ff0066'; /* Neon red end */
+  ctx.shadowColor = 'rgba(255,0,102,0.8)';
+  ctx.shadowBlur = 10;
+  ctx.fillRect(end.x*cellSize+4, end.y*cellSize+4, cellSize-8, cellSize-8);
+  ctx.shadowBlur = 0; /* Reset shadow */
+
+
+  if(highlightPath){
+    ctx.strokeStyle = '#ffff66'; /* Neon yellow path */
+    ctx.lineWidth = Math.max(2, Math.floor(cellSize/6));
+    ctx.shadowColor = 'rgba(255,255,102,0.8)';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    for(let i=0;i<highlightPath.length-1;i++){
+      const a = highlightPath[i], b = highlightPath[i+1];
+      ctx.moveTo(a.x*cellSize + cellSize/2, a.y*cellSize + cellSize/2);
+      ctx.lineTo(b.x*cellSize + cellSize/2, b.y*cellSize + cellSize/2);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0; /* Reset shadow */
+  }
+}
+function drawLine(x1,y1,x2,y2){ ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); }
+
+/* ---------- generation: helpers ---------- */
+function makeEmptyMaze(w,h){
+  W=w; H=h;
+  cellSize = Math.floor(Math.min(canvas.width / W, canvas.height / H));
+  maze = Array.from({length:H}, ()=>Array.from({length:W}, ()=>({
+    top:true,right:true,bottom:true,left:true,visited:false
+  })));
+  start = {x:0,y:0}; end = {x:W-1,y:H-1};
+  mazeInfo.textContent = `Maze: ${W} × ${H}`;
+}
+
+/* ---------- DFS backtracker ---------- */
+async function genDFS(animated=true){
+  const stack = [{x:0,y:0}];
+  maze[0][0].visited = true;
+  while(stack.length){
+    const cur = stack.pop(); const x = cur.x, y = cur.y;
+    const neighbors = [];
+    if(y>0 && !maze[y-1][x].visited) neighbors.push({x,y:y-1,dir:'top'});
+    if(y<H-1 && !maze[y+1][x].visited) neighbors.push({x,y:y+1,dir:'bottom'});
+    if(x>0 && !maze[y][x-1].visited) neighbors.push({x:x-1,y,dir:'left'});
+    if(x<W-1 && !maze[y][x+1].visited) neighbors.push({x:x+1,y,dir:'right'});
+    if(neighbors.length){
+      const nxt = neighbors[Math.floor(Math.random()*neighbors.length)];
+      knock(x,y,nxt.x,nxt.y);
+      maze[nxt.y][nxt.x].visited = true;
+      stack.push(cur); stack.push(nxt);
+    }
+    if(animated){
+      drawMaze();
+      ctx.fillStyle = 'rgba(255,64,129,0.9)'; /* Active generation cell */
+      ctx.shadowColor = 'rgba(255,64,129,0.8)';
+      ctx.shadowBlur = 8;
+      ctx.fillRect(x*cellSize+2,y*cellSize+2,cellSize-4,cellSize-4);
+      ctx.shadowBlur = 0;
+      await sleep(8);
+    }
+  }
+  // clear visited flags
+  for(let r=0;r<H;r++) for(let c=0;c<W;c++) maze[r][c].visited=false;
+}
+
+/* ---------- Prim's randomized ---------- */
+async function genPrim(animated=true){
+  const inTree = Array.from({length:H}, ()=>Array(W).fill(false));
+  const walls = [];
+  const sx = Math.floor(Math.random()*W), sy = Math.floor(Math.random()*H);
+  inTree[sy][sx]=true;
+  const pushWallIf = (x,y,dx,dy,dir)=>{ const nx=x+dx, ny=y+dy; if(inBounds(nx,ny)) walls.push({x,y,dx,dy,dir}); };
+  if(sy>0) pushWallIf(sx,sy,0,-1,'top');
+  if(sy<H-1) pushWallIf(sx,sy,0,1,'bottom');
+  if(sx>0) pushWallIf(sx,sy,-1,0,'left');
+  if(sx<W-1) pushWallIf(sx,sy,1,0,'right');
+
+  while(walls.length){
+    const idx = Math.floor(Math.random()*walls.length);
+    const w = walls.splice(idx,1)[0];
+    const x = w.x, y = w.y, nx = x + w.dx, ny = y + w.dy;
+    if(inTree[ny][nx]) continue;
+    knock(x,y,nx,ny);
+    inTree[ny][nx]=true;
+    if(ny>0 && !inTree[ny-1][nx]) walls.push({x:nx,y:ny,dx:0,dy:-1,dir:'top'});
+    if(ny<H-1 && !inTree[ny+1][nx]) walls.push({x:nx,y:ny,dx:0,dy:1,dir:'bottom'});
+    if(nx>0 && !inTree[ny][nx-1]) walls.push({x:nx,y:ny,dx:-1,dy:0,dir:'left'});
+    if(nx<W-1 && !inTree[ny][nx+1]) walls.push({x:nx,y:ny,dx:1,dy:0,dir:'right'});
+    if(animated){ drawMaze(); await sleep(6); }
+  }
+}
+
+/* ---------- Kruskal's (Union-Find) ---------- */
+async function genKruskal(animated=true){
+  const edges = [];
+  for(let y=0;y<H;y++){
+    for(let x=0;x<W;x++){
+      if(x < W-1) edges.push({a:id(x,y), b:id(x+1,y), ax:x, ay:y, bx:x+1, by:y});
+      if(y < H-1) edges.push({a:id(x,y), b:id(x,y+1), ax:x, ay:y, bx:x, by:y+1});
+    }
+  }
+  shuffle(edges);
+  const parent = Array(W*H).fill(0).map((_,i)=>i);
+  function find(a){ return parent[a]===a ? a : (parent[a]=find(parent[a])); }
+  function unite(a,b){ parent[find(a)] = find(b); }
+
+  for(const e of edges){
+    const ra = find(e.a), rb = find(e.b);
+    if(ra !== rb){
+      knock(e.ax, e.ay, e.bx, e.by);
+      unite(ra, rb);
+      if(animated){ drawMaze(); await sleep(4); }
+    }
+  }
+}
+
+/* ---------- basic utils ---------- */
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } }
+
+/* knock walls between two adjacent cells */
+function knock(x1,y1,x2,y2){
+  if(x1===x2 && y1 === y2) return;
+  if(x1===x2 && y1 === y2+1){ maze[y1][x1].top=false; maze[y2][x2].bottom=false; }
+  else if(x1===x2 && y1+1 === y2){ maze[y1][x1].bottom=false; maze[y2][x2].top=false; }
+  else if(y1===y2 && x1 === x2+1){ maze[y1][x1].left=false; maze[y2][x2].right=false; }
+  else if(y1===y2 && x1+1 === x2){ maze[y1][x1].right=false; maze[y2][x2].left=false; }
+}
+
+/* ---------- generation driver ---------- */
+async function generateDriver(){
+  if(generating) return;
+  generating = true;
+  status.textContent = 'Generating maze...';
+  const w = Math.max(2, Math.min(200, parseInt(document.getElementById('width').value) || 24));
+  const h = Math.max(2, Math.min(200, parseInt(document.getElementById('height').value) || 24));
+  makeEmptyMaze(w,h);
+  const algo = document.getElementById('genAlgo').value;
+  statGen.textContent = algo.toUpperCase();
+  if(algo === 'dfs'){ await genDFS(true); }
+  else if(algo === 'prim'){ await genPrim(true); }
+  else if(algo === 'kruskal'){ await genKruskal(true); }
+  drawMaze();
+  status.textContent = 'Maze generated ✅';
+  statSteps.textContent = '0'; statLen.textContent = '0'; statPaths.textContent = '0';
+  generating = false;
+}
+
+/* ---------- solver (BFS & DFS) with animated reveal ---------- */
+function reconstruct(prevMap, tx, ty){
+  const path = [];
+  let curKey = `${tx},${ty}`;
+  path.push({x:tx,y:ty});
+  while(prevMap.has(curKey)){
+    const p = prevMap.get(curKey);
+    path.push({x:p.x,y:p.y});
+    curKey = `${p.x},${p.y}`;
+  }
+  return path.reverse();
+}
+
+function bfsSearch(){
+  const q = [{x:start.x,y:start.y}];
+  const visited = Array.from({length:H}, ()=>Array(W).fill(false));
+  const prev = new Map();
+  visited[start.y][start.x]=true;
+  while(q.length){
+    const n = q.shift();
+    const x = n.x, y = n.y;
+    if(x===end.x && y===end.y) return reconstruct(prev,x,y);
+    const cell = maze[y][x];
+    const dirs = [{dx:0,dy:-1,open:!cell.top},{dx:1,dy:0,open:!cell.right},{dx:0,dy:1,open:!cell.bottom},{dx:-1,dy:0,open:!cell.left}];
+    for(const d of dirs){
+      const nx=x+d.dx, ny=y+d.dy;
+      if(d.open && inBounds(nx,ny) && !visited[ny][nx]){
+        visited[ny][nx]=true;
+        prev.set(`${nx},${ny}`, {x,y});
+        q.push({x:nx,y:ny});
+      }
+    }
+  }
+  return null;
+}
+
+function dfsSearch(){
+  const visited = Array.from({length:H}, ()=>Array(W).fill(false));
+  const prev = new Map();
+  let found = false;
+  function dfs(x,y){
+    if(found) return;
+    visited[y][x]=true;
+    if(x===end.x && y===end.y){ found=true; return; }
+    const cell = maze[y][x];
+    const dirs = [{dx:0,dy:-1,open:!cell.top},{dx:1,dy:0,open:!cell.right},{dx:0,dy:1,open:!cell.bottom},{dx:-1,dy:0,open:!cell.left}];
+    for(const d of dirs){
+      const nx=x+d.dx, ny=y+d.dy;
+      if(d.open && inBounds(nx,ny) && !visited[ny][nx]){
+        prev.set(`${nx},${ny}`, {x,y});
+        dfs(nx,ny);
+        if(found) return;
+      }
+    }
+  }
+  dfs(start.x,start.y);
+  if(!found) return null;
+  return reconstruct(prev, end.x, end.y);
+}
+
+/* animate reveal */
+async function revealPath(path){
+  statSteps.textContent = String(path.length-1);
+  statLen.textContent = String(path.length);
+  statPaths.textContent = '1';
+
+  for(let i=0;i<path.length-1;i++){
+    const b = path[i+1];
+    drawMaze();
+    // draw already revealed segments
+    ctx.strokeStyle = '#ffff66';
+    ctx.lineWidth = Math.max(2, Math.floor(cellSize/6));
+    ctx.shadowColor = 'rgba(255,255,102,0.8)';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    for(let j=0;j<=i;j++){
+      if(j+1 >= path.length) break;
+      const p = path[j], q = path[j+1];
+      ctx.moveTo(p.x*cellSize + cellSize/2, p.y*cellSize + cellSize/2);
+      ctx.lineTo(q.x*cellSize + cellSize/2, q.y*cellSize + cellSize/2);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // highlight next node briefly
+    ctx.fillStyle = 'rgba(255,255,0,0.12)';
+    ctx.shadowColor = 'rgba(255,255,0,0.5)';
+    ctx.shadowBlur = 8;
+    ctx.fillRect(b.x*cellSize+2, b.y*cellSize+2, cellSize-4, cellSize-4);
+    ctx.shadowBlur = 0;
+
+    await sleep(animationDelay);
+  }
+}
+
+/* ---------- driver solve ---------- */
+async function solveDriver(){
+  if(solving || generating) return;
+  solving = true;
+  status.textContent = 'Solving...';
+  statSolve.textContent = document.getElementById('solveAlgo').value.toUpperCase();
+
+  statSteps.textContent = '0'; statLen.textContent = '0'; statPaths.textContent = '0';
+
+  let path = null;
+  const algo = document.getElementById('solveAlgo').value;
+  if(algo === 'bfs') path = bfsSearch();
+  else path = dfsSearch();
+
+  if(!path){
+    status.textContent = 'No path found ❌';
+    statPaths.textContent = '0';
+    solving = false;
+    return;
+  }
+
+  await revealPath(path);
+
+  status.textContent = 'Solved ✅';
+  solving = false;
+}
+
+/* ---------- reset & download ---------- */
+function resetAll(){
+  if(solving || generating) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  maze = []; W=0; H=0;
+  mazeInfo.textContent = 'Maze: - × -';
+  statGen.textContent = '-'; statSolve.textContent = '-';
+  statSteps.textContent = '0'; statLen.textContent = '0'; statPaths.textContent = '0';
+  status.textContent = 'Reset';
+}
+
+function downloadPNG(){
+  const a = document.createElement('a');
+  a.download = 'neon_maze.png';
+  a.href = canvas.toDataURL();
+  a.click();
+}
+
+/* ---------- events ---------- */
+btnGen.addEventListener('click', ()=>{ generateDriver().catch(e=>{console.error(e); status.textContent='Error';}); });
+btnSolve.addEventListener('click', ()=>{ solveDriver().catch(e=>{console.error(e); status.textContent='Error';}); });
+btnReset.addEventListener('click', resetAll);
+btnDownload.addEventListener('click', downloadPNG);
+
+/* initialize blank canvas on load */
+resetAll();
+</script>
+</body>
+</html>
